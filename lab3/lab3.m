@@ -1,35 +1,48 @@
-%% Tests 2
-out = multipleTests(10, 100)
+%% Test pełny
+for i = 1:5
+    rng(i)
+    disp("Dla seeda = " + i + " mamy :")
+    [out, srLiczbaIteracjiMy, srLiczbaIteracjiMATLAB] = multipleTests(10, 100)
+end
 
-%% Test 3
-%x = [1;2;3]
-%y = [10;7;5]
-%[A_0,b_0] = getAandb(x,y)
-n = 5;
-[x,y] = drawData(n);
+
+%% Test jednostkowy
+x = [1;2;3]
+y = [10;7;5]
+%n = 5;
+%[x,y] = drawData(n);
 [A,b] = getAandb(x,y);
-x_odp = mySymplex(A,b,true);
-plot_solution(x, y, x_odp)
+x_odp = mysimplex(A,b,true);
 
-%% Tests
-%n = 10;
-[x,y] = drawData(n)
-%x = [1;2;3]
-%y = [10;7;5]
-[A,b,f,Aeq,beq,lb,ub] = getAandb(x,y)
+plotSolution(x, y, x_odp)
 
-[x_odp,fval,exitflag,output,lambda] = linprog(-f,A,b,Aeq,beq,lb,ub)
+%% Test współliniowy
+x = [1;2;3;4;5]
+y = [4;5;6;7;8]
 
-e = max(y) + fval;
-%abs(max(abs(x_odp(1)*x + x_odp(2) - y)) - e) < 0.00000001 % powinna byc rownosc
-plot_solution(x, y, x_odp)
+[A,b] = getAandb(x,y);
+x_odp = mysimplex(A,b,true);
 
-%% Functions definitons
+plotSolution(x, y, x_odp)
+
+%% Test wszytkie nierownosci sa rownosci
+x = [1;2;3;4;5]
+y = [4;5;4;5;4]
+
+[A,b] = getAandb(x,y);
+x_odp = mysimplex(A,b,true);
+
+plotSolution(x, y, x_odp)
+
+%% Definicje użytych funkcji
+
+% Funkcja drawData generuje dane do testów.
 function [x, y] = drawData(n)
     x=(1:1:n)';
     y=randi([0 1500],n,1);
 end
 
+% Funkcja getAandb przyjmuje wektory x i y, a zwraca odpowiadające im macierz A i wektor b.
 function [A,b,f,Aeq,beq,lb,ub] = getAandb(x,y)
     n = length(x);
     A = zeros(2*n, 5);
@@ -51,6 +64,7 @@ function [A,b,f,Aeq,beq,lb,ub] = getAandb(x,y)
     lb = [0, 0, 0, 0, 0]; ub = [inf, inf, inf, inf, inf];
 end
 
+% Funkcja getDataFromAandb przyjmuje macierz A i wektor b, a zwraca odpowiadające im wektory x i y.
 function [x,y] = getDataFromAandb(A,b)
     n = length(A) / 2;
     x = zeros(n,1);
@@ -62,7 +76,7 @@ function [x,y] = getDataFromAandb(A,b)
     end
 end
 
-% Metoda Symplex do minimalizacji funkcji f.
+% Metoda simplex do minimalizacji funkcji f.
 % Działa tak samo jak linprog, ale ma więcej założeń
 % Zakłada bowiem postać zadania programowania liniowego taką jak w raporcie
 % Czyli m.in.:
@@ -71,7 +85,10 @@ end
 % 3. Bazą zą pozostałe zmienne od 4 do 5+2*n
 % 4. Wektor b jest nieujemny
 % 5. Macierz A jest szczególnej postaci i wymiarów 2*n na 5.
-function [x_odp] = mySymplex(A,b,verbose)
+% 
+% Można poprosić, aby test drukował na ekranie kolejne macierze tabelki simplex.
+function [x_odp, licznikIteracji] = mysimplex(A,b,verbose)
+    % przygotowanie podstatowoych danych
     n = length(A) / 2;
 
     c = zeros(1, 5+2*n);
@@ -102,24 +119,29 @@ function [x_odp] = mySymplex(A,b,verbose)
     while (any(cMinusZ > 0) && licznikIteracji < 100)
         licznikIteracji = licznikIteracji + 1;
         
+        % Krok 1: Wybór nowej zmiennej do wejścia do bazy
         newBaseElement = find(cMinusZ == max(cMinusZ));
         newBaseElement = newBaseElement(1); % Na wypadek remisu, wybierz pierwszy
         
+        % Krok 2: Wybór zmiennej do wyjścia z bazy
         j = wybierzElementDoWyrzuceniaZBazy(M(1:(2*n), newBaseElement), b);
 
+        % Krok 3: Aktualizacja bazy
         baza(j) = newBaseElement;
         kosztyBazy(j) = c(newBaseElement);
 
+        % Krok 4: Przekształcenie wiersza zmiennych bazowych
         b(j) = b(j) / M(j,newBaseElement); % to najpierw, bo za chwile M(j,newBaseElement) będzie równe 1.
         M(j,1:(5+2*n)) = M(j,1:(5+2*n)) / M(j,newBaseElement);
         for i = 1:(2*n)
-            if (i == j) % ten wiersz był zrobiony przed petlą
+            if (i == j) % ten wiersz był zrobiony przed petlą for
                 continue
             end
             b(i) = b(i) - b(j) * M(i,newBaseElement);
             M(i,1:(5+2*n)) = M(i,1:(5+2*n)) - M(j,1:(5+2*n)) * M(i,newBaseElement);
         end
 
+        % Krok 5: Obliczenie nowych kosztów
         z = kosztyBazy' * M;
         cMinusZ = c - z;
 
@@ -132,6 +154,7 @@ function [x_odp] = mySymplex(A,b,verbose)
     end
     % pentla się zakończyła, czyli mam punkt optymalny. Należy odczytać odpowiedź
 
+    % Odczytanie rozwiązania
     x_odp = zeros(5,1);
     for i = 1:5
         index = find(baza == i);
@@ -147,6 +170,8 @@ function [x_odp] = mySymplex(A,b,verbose)
     end
 end
 
+% Funkcja wybierzElementDoWyrzuceniaZBazy wybiera element do usunięcia z
+% bazy. Czyli to na którym jako pierwszym dochodzimy do granicy ograniczeń
 % p - pivot column
 function [j] = wybierzElementDoWyrzuceniaZBazy(p, b)
     ratio = b./p;
@@ -161,30 +186,49 @@ function [j] = wybierzElementDoWyrzuceniaZBazy(p, b)
     end
 end
 
-function [out] = singleTest(n)
+% Funkcja singleTest wykonuje pojedynczy test dla danej wielkości problemu.
+% Można poprosić, aby test drukował na ekranie wyniki.
+function [out, iters_my, iters_MATLAB] = singleTest(n, verbose)
     [x,y] = drawData(n);
     [A,b,f,Aeq,beq,lb,ub] = getAandb(x,y);
 
-    options = optimoptions('linprog','Display','none');
-    x_odp_MATLAB = linprog(-f,A,b,Aeq,beq,lb,ub,options);
+    options = optimoptions('linprog','Display','none','Algorithm','dual-simplex');
+    [x_odp_MATLAB,~,~,output,~] = linprog(-f,A,b,Aeq,beq,lb,ub,options);
+    iters_MATLAB = output.iterations;
     error_MATLAB = x_odp_MATLAB(5);
     
-    x_odp_my = mySymplex(A,b,false);
+    [x_odp_my, iters_my] = mysimplex(A,b,false);
     error_my = x_odp_my(5);
-    
-    out = (abs(error_my - error_MATLAB) < 0.00000001);
-end
 
-function [numOfSuccessfulTests] = multipleTests(n, numOfTests)
-    numOfSuccessfulTests = 0;
-    for i = 1:numOfTests
-        if (singleTest(n))
-            numOfSuccessfulTests = numOfSuccessfulTests + 1;
-        end
+    out = (abs(error_my - error_MATLAB) < 0.00000001);
+
+    if(verbose)
+        disp("Moj algorytm iteracji: " + iters_my);
+        disp("MATLAB iteracji: " + iters_MATLAB);
+        disp("Różnica w wyniku: " + abs(error_my - error_MATLAB))
     end
 end
 
-function [] = plot_solution(x, y, x_odp)
+% Funkcja multipleTests wykonuje wiele testów.
+function [numOfSuccessfulTests, srLiczbaIteracjiMy, srLiczbaIteracjiMATLAB] = multipleTests(n, numOfTests)
+    liczbaIteracjiMy = 0;
+    liczbaIteracjiMATLAB = 0;
+    numOfSuccessfulTests = 0;
+    for i = 1:numOfTests
+        [wynikSingleTest, jedenLiczbaIteracjiMy, jedenLiczbaIteracjiMATLAB] = singleTest(n, false);
+        liczbaIteracjiMy = liczbaIteracjiMy + jedenLiczbaIteracjiMy;
+        liczbaIteracjiMATLAB = liczbaIteracjiMATLAB + jedenLiczbaIteracjiMATLAB;
+        if (wynikSingleTest)
+            [numOfSuccessfulTests] = numOfSuccessfulTests + 1;
+        end
+    end
+
+    srLiczbaIteracjiMy = liczbaIteracjiMy / numOfTests;
+    srLiczbaIteracjiMATLAB = liczbaIteracjiMATLAB / numOfTests;
+end
+
+% Funkcja plotSolution rysuje wykres danych wejściowych i otrzymanego rozwiązania.
+function [] = plotSolution(x, y, x_odp)
     a = x_odp(1) - x_odp(2);
     b = x_odp(3) - x_odp(4);
 
