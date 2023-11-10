@@ -7,11 +7,8 @@ out = multipleTests(10, 100)
 %[A_0,b_0] = getAandb(x,y)
 n = 5;
 [x,y] = drawData(n);
-[A,b,f,Aeq,beq,lb,ub] = getAandb(x,y);
-x_odp = mySymplex(A,b);
-plot_solution(x, y, x_odp)
-
-x_odp = linprog(-f,A,b,Aeq,beq,lb,ub);
+[A,b] = getAandb(x,y);
+x_odp = mySymplex(A,b,true);
 plot_solution(x, y, x_odp)
 
 %% Tests
@@ -74,7 +71,7 @@ end
 % 3. Bazą zą pozostałe zmienne od 4 do 5+2*n
 % 4. Wektor b jest nieujemny
 % 5. Macierz A jest szczególnej postaci i wymiarów 2*n na 5.
-function [x_odp] = mySymplex(A,b)
+function [x_odp] = mySymplex(A,b,verbose)
     n = length(A) / 2;
 
     c = zeros(1, 5+2*n);
@@ -92,8 +89,19 @@ function [x_odp] = mySymplex(A,b)
     z = kosztyBazy' * M;
     cMinusZ = c - z;
 
+    licznikIteracji = 0;
+
+    if (verbose)
+        disp("Kolejna tabelka sympleksowa:")
+        disp(M)
+        disp("Aktualne zmienne bazowe:")
+        disp(baza)
+    end
+
     % główna pental algorytmu Simplex
-    while any(cMinusZ > 0)
+    while (any(cMinusZ > 0) && licznikIteracji < 100)
+        licznikIteracji = licznikIteracji + 1;
+        
         newBaseElement = find(cMinusZ == max(cMinusZ));
         newBaseElement = newBaseElement(1); % Na wypadek remisu, wybierz pierwszy
         
@@ -114,6 +122,13 @@ function [x_odp] = mySymplex(A,b)
 
         z = kosztyBazy' * M;
         cMinusZ = c - z;
+
+        if (verbose)
+            disp("Kolejna tabelka sympleksowa:")
+            disp(M)
+            disp("Aktualne zmienne bazowe:")
+            disp(baza)
+        end
     end
     % pentla się zakończyła, czyli mam punkt optymalny. Należy odczytać odpowiedź
 
@@ -123,6 +138,12 @@ function [x_odp] = mySymplex(A,b)
         if (~isempty(index))
             x_odp(i) = b(index);
         end 
+    end
+
+    if (verbose)
+        disp("Rozwiązanie:")
+        disp("a = " + (x_odp(1) - x_odp(2)))
+        disp("b = " + (x_odp(3) - x_odp(4)))
     end
 end
 
@@ -148,7 +169,7 @@ function [out] = singleTest(n)
     x_odp_MATLAB = linprog(-f,A,b,Aeq,beq,lb,ub,options);
     error_MATLAB = x_odp_MATLAB(5);
     
-    x_odp_my = mySymplex(A,b);
+    x_odp_my = mySymplex(A,b,false);
     error_my = x_odp_my(5);
     
     out = (abs(error_my - error_MATLAB) < 0.00000001);
@@ -157,7 +178,6 @@ end
 function [numOfSuccessfulTests] = multipleTests(n, numOfTests)
     numOfSuccessfulTests = 0;
     for i = 1:numOfTests
-        disp(i)
         if (singleTest(n))
             numOfSuccessfulTests = numOfSuccessfulTests + 1;
         end
