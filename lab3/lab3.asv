@@ -2,14 +2,12 @@
 j = wybierzElementDoWyrzuceniaZBazy(M(1:(2*n), newBaseElement), b)
 
 %% Test 3
-%x = [1;2;3]
-%y = [10;7;5]
+x = [1;2;3]
+y = [10;7;5]
 %[A_0,b_0] = getAandb(x,y)
-n = 5;
-[x,y] = drawData(n);
-[A,b,f,Aeq,beq,lb,ub] = getAandb(x,y);
-x_odp = mySymplex(A,b);
-plot_solution(x, y, x_odp(1), x_odp(2))
+[A,b] = getAandb(x,y)
+x_odp = mySymplex(A,b)
+plot_solution([0;2, y, x_odp(1), x_odp(2))
 
 %% Tests
 %n = 10;
