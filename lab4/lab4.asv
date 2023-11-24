@@ -11,27 +11,17 @@
 
 % NOTE: Do raportu można mniejsze n i m.
 
-%% MyTest
-[c, A, b, g] = drawData(n, m);
-[x,fval,exitflag_linprog,output,lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
-
-%% MyTest2
-[ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
-
 %% Test
 n = 5; % Długość wektora c i g
 m = 10; % Liczba wierszy macierzy A i długość wektora b
 
-exitflag_linprog = -2;
+[c, A, b, g] = drawData(n, m);
 
-while (exitflag_linprog == -2)
-    [c, A, b, g] = drawData(n, m);
-    
-    options = optimoptions('linprog','Display','none','Algorithm','dual-simplex');
-    [x,fval,exitflag_linprog,output,lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
-    
-    [ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
-end
+options = optimoptions('linprog','Display','none','Algorithm','dual-simplex');
+[x,fval,exitflag_linprog,output,lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+
+[ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
+
 
 
 %% Definicje użytych funkcji
@@ -46,28 +36,29 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
         disp(b);
         disp(g);
     end
-    exitflag = 1;
+    exitflag =1;
     [n_rows, n_cols] = size(A');
     A_dual = [A' eye(n_rows) -eye(n_rows)];
-    c_dual = [b', g', zeros(1, n_rows)];
-    b_dual = c';
-    baseIndexes = zeros(n_rows, 1);
-    signChanged = zeros(n_rows, 1);
+    c_dual = [b' g' zeros(1, n_rows)];
+    b_dual = c;
+    base_indices = zeros(n_rows, 1);
+    sign_changed = zeros(n_rows, 1);
     
     % Zamiana wierszy na ujemny i dopisanie odpowiedniego do bazy:
     for i = 1:n_rows
-        if(b_dual(i) < 0)
-            signChanged(i) = 1;
-            baseIndexes(i) = n_cols + n_rows + i;
+        if(b_dual(i)<0)
+            sign_changed(i) = 1;
+            base_indices(i) = n_cols + n_rows + i;
             A_dual(i, :) = -A_dual(i, :);
             b_dual(i, :) = -b_dual(i, :);
         else
-            baseIndexes(i) = n_cols + i;
+            base_indices(i) = n_cols + i;
+            
         end
     end
     if(verbose)
         disp("Dane przekrztalcone do dualnego:")
-        disp(signChanged);
+        disp(sign_changed);
         disp(A_dual);
         disp(b_dual);
         disp(c_dual);
@@ -75,7 +66,7 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
 
     % wywołanie zwykłego solvera simplex
     lb = zeros(size(b_dual))';
-    [ZDy, ~, exitflag, A_dual, ~, baseIndexes] = simplex(-c_dual, A_dual, b_dual, baseIndexes, verbose);
+    [ZDy, ~, exitflag, A_dual, ~, indices] = simplex(-c_dual, A_dual, b_dual, base_indices);
     if(verbose)
         disp("Wyniki obliczen:")
         disp(linprog(c_dual, [], [], A_dual, b_dual, lb))
@@ -83,77 +74,82 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
     end
     
     % Dostosowanie wyniku dualnego do wyniku prymalnego:
-    A_solution = A_dual(:, baseIndexes);
+    A_solution = A_dual(:, base_indices);
     for i = 1:n_rows
-        if(signChanged(i) == 1)
+        if(sign_changed(i) == 1)
             A_solution(:, i) = -A_solution(:, i);
         end
     end
-    ZPx = c_dual(baseIndexes) * A_solution; % tu rozwiązanie prymalnego
+    ZPx = c_dual(indices) * A_solution; % tu rozwiązanie prymalnego
 end
 
 % Metoda simplex do maksymalizacji t(c) * x
-% Można jej podać z jakich indeksów ma zaczynać
-function [x, fval, exitflag, A, bf, baseIndexes] = simplex(c, A, b, baseIndexes, verbose)
+% Można jej podać z jakich indeksów ma z
+function [x, fval, exitflag, A, bf, indices] = simplex(c, A, b, base_indices)
     exitflag = 1;
-    maxIter = 100;
+    maxIter = 10000;
     bf = b;
-    cb = c(baseIndexes);
+    cb = c(base_indices);
     z = cb * A;
     zc = z - c;
     
     for iter = 1:maxIter
     
-        if(verbose)
-            disp('Obecna tabela:')
-            disp([A bf; z inf; zc inf])
-        
-            disp('Obecne indeksy w bazie:')
-            disp(baseIndexes)
-        end
+        disp('Obecna tabela:')
+        disp([A bf; z inf;zc inf])
+    
+        disp('Obecne indeksy w bazie:')
+        disp(indices)
         if all(zc>=0)
-            if(verbose)
-                disp("Znaleziono rozwizanie")
-            end
+            disp("Znaleziono rozwizanie")
             break;
         end
     
-        [~,col] = min(zc); % najmniejszy element
+        % znajdz minimalną wartość w wierszu zc
+        [~,col]=min(zc);
         if not(any(A(:,col)>0))
-            disp("Nie ma rozwiazania problemu dualnego") % ten simplex bedzie wywolywany dla problemu dualnego
+            disp("Nie można znaleźć rozwiązania")
             x = inf;
             fval = inf;
             exitflag = 0;
             return
         end
     
-        mySet = (bf + eps)./A(:,col);
+        %oblicz wartości b/A dla kolumny z wybraną wartością zc
+        set=(bf + eps)./A(:,col);
     
-        mySet(A(:,col)<0) = inf;
-        [~,row] = min(mySet);
+        %znajdz najmniejszą nieujemna wartość w kolumnie
+        set(A(:,col)<0)=inf;
+        [~,row]=min(set);
     
-        bf(row) = bf(row)/A(row,col);
-        A(row,:) = A(row,:)/A(row,col);
+        % sprowadzamy A(row, col) do 1
+        bf(row)=bf(row)/A(row,col);
+        A(row,:)=A(row,:)/A(row,col);
       
         t = A(:,col)./A(row,:);
         t =  t(:, col);
         t(row) = 0;
     
-        Dif = t*A(row,:);
-        A = A-Dif;
+        % wyzeruj pozostale wspólczynniki w kolumnie
+        Dif=t*A(row,:);
+        A=A-Dif;
         
-        bf = bf-bf(row)*t;
+        % przemnóż przez to samo dla prawej kolumny
+        bf=bf-bf(row)*t;
     
-        baseIndexes(row) = col;
-        cb = c(baseIndexes)';
     
-        z = cb' * A;
-        zc = z-c;
+        % zaaktualizuj lewą kolumnę (przy zmiennych bazowych)
+        indices(row)=col;
+        cb= c(indices)';
+        
+    
+        % oblicz z i z-c
+        z=cb' * A;
+        zc=z-c;
     end
-    
-    % Odczytajmy RO
+    % wskaż RO i wartość funkcji
     x = zeros(1, size(A, 2));
-    x(baseIndexes) = bf';
+    x(indices) = bf';
     fval = sum(c.*x);
 end
 
@@ -166,10 +162,10 @@ function [c, A, b, g] = drawData(n, m)
     A = randi([-5, 5], m, n);
     
     % Generowanie wektora b
-    b = randi([-5, 5], m, 1);
+    b = randi([-5, 5], 1, m);
     
     % Generowanie wektora g
-    g = randi([1, 30], n, 1);
+    g = randi([1, 30], 1, n);
 end
 
 
