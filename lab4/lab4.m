@@ -13,10 +13,36 @@
 
 %% MyTest
 [c, A, b, g] = drawData(n, m);
+
+options = optimoptions('linprog','Display','none','Algorithm','dual-simplex');
 [x,fval,exitflag_linprog,output,lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
 
 %% MyTest2
 [ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
+
+%% MyTest3
+[n_rows, n_cols] = size(A');
+A_dual = [A', eye(n_rows), -eye(n_rows)];
+c_dual = -[b', g', zeros(1, n_rows)];
+b_dual = c';
+baseIndexes = zeros(n_rows, 1);
+signChanged = zeros(n_rows, 1);
+
+% Zamiana wierszy na ujemny i dopisanie odpowiedniego do bazy:
+for i = 1:n_rows
+    if(b_dual(i) < 0)
+        signChanged(i) = 1;
+        baseIndexes(i) = n_cols + n_rows + i;
+        A_dual(i, :) = -A_dual(i, :);
+        b_dual(i, :) = -b_dual(i, :);
+    else
+        baseIndexes(i) = n_cols + i;
+    end
+end
+
+disp("Moj:")
+[ZDy, ~, exitflag, A_dual, ~, baseIndexes] = simplex(c_dual, A_dual, b_dual, baseIndexes, true)
+    
 
 %% Test
 n = 5; % Długość wektora c i g
@@ -49,7 +75,7 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
     exitflag = 1;
     [n_rows, n_cols] = size(A');
     A_dual = [A' eye(n_rows) -eye(n_rows)];
-    c_dual = [b', g', zeros(1, n_rows)];
+    c_dual = -[b', g', zeros(1, n_rows)];
     b_dual = c';
     baseIndexes = zeros(n_rows, 1);
     signChanged = zeros(n_rows, 1);
@@ -74,11 +100,10 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
     end
 
     % wywołanie zwykłego solvera simplex
-    lb = zeros(size(b_dual))';
-    [ZDy, ~, exitflag, A_dual, ~, baseIndexes] = simplex(-c_dual, A_dual, b_dual, baseIndexes, verbose);
+    [ZDy, ~, exitflag, A_dual, ~, baseIndexes] = simplex(c_dual, A_dual, b_dual, baseIndexes, verbose);
     if(verbose)
         disp("Wyniki obliczen:")
-        disp(linprog(c_dual, [], [], A_dual, b_dual, lb))
+        disp(linprog(-c_dual, [], [], A_dual, b_dual, zeros(size(c_dual))')')
         disp(ZDy)
     end
     
@@ -98,63 +123,63 @@ function [x, fval, exitflag, A, bf, baseIndexes] = simplex(c, A, b, baseIndexes,
     exitflag = 1;
     maxIter = 100;
     bf = b;
-    cb = c(baseIndexes);
-    z = cb * A;
-    zc = z - c;
+    cb = c(baseIndexes); % Pobierz współczynniki z c odpowiadające bazie
+    z = cb * A; % Wskaźnik funkcji celu
+    zc = z - c; % Wskaźnik funkcji celu dla nowej bazy
     
     for iter = 1:maxIter
-    
         if(verbose)
             disp('Obecna tabela:')
-            disp([A bf; z inf; zc inf])
+            disp([A bf; z NaN; zc NaN])
         
             disp('Obecne indeksy w bazie:')
             disp(baseIndexes)
         end
-        if all(zc>=0)
+        if all(zc >= 0) % Sprawdzenie warunku zakończenia
             if(verbose)
                 disp("Znaleziono rozwizanie")
             end
             break;
         end
     
-        [~,col] = min(zc); % najmniejszy element
-        if not(any(A(:,col)>0))
-            disp("Nie ma rozwiazania problemu dualnego") % ten simplex bedzie wywolywany dla problemu dualnego
+        [~,col] = min(zc); % Znajdź kolumnę o najmniejszym współczynniku
+        if not(any(A(:,col) > 0))
+            disp("Nie ma rozwiazania problemu dualnego") % Ten simplex jest wywolywany dla problemu dualnego
             x = inf;
             fval = inf;
             exitflag = 0;
             return
         end
     
-        mySet = (bf + eps)./A(:,col);
+        mySet = (bf)./A(:,col); % Znajdź ilorazy b/wartość_kolumny dla elementów dodatnich w kolumnie
     
-        mySet(A(:,col)<0) = inf;
-        [~,row] = min(mySet);
+        mySet(A(:,col) < 0) = inf; % Ujemne mnie nie interesują
+        [~,row] = min(mySet); % Znajdź indeks wiersza o najmniejszym ilorazie
     
-        bf(row) = bf(row)/A(row,col);
-        A(row,:) = A(row,:)/A(row,col);
+        bf(row) = bf(row) / A(row, col); % Zaktualizuj wartość w bazie
+        A(row, :) = A(row, :) / A(row, col); % Znormalizuj wiersz
       
-        t = A(:,col)./A(row,:);
+        t = A(:, col) ./ A(row, :); % Oblicz współczynniki dla pozostałych wierszy
         t =  t(:, col);
         t(row) = 0;
     
-        Dif = t*A(row,:);
-        A = A-Dif;
+        Dif = t * A(row, :);
+        A = A - Dif;
         
-        bf = bf-bf(row)*t;
+        bf = bf - bf(row) * t;
     
-        baseIndexes(row) = col;
-        cb = c(baseIndexes)';
+        baseIndexes(row) = col; % Zaktualizuj indeks w bazie
+        cb = c(baseIndexes)'; % Zaktualizuj współczynniki c odpowiadające bazie
     
+        % Oblicz wskaźnik funkcji celu dla nowej bazy
         z = cb' * A;
-        zc = z-c;
+        zc = z - c;
     end
     
     % Odczytajmy RO
     x = zeros(1, size(A, 2));
     x(baseIndexes) = bf';
-    fval = sum(c.*x);
+    fval = sum(c.*x); % Oblicz wartość funkcji celu
 end
 
 % Funkcja drawData generuje dane do testów.
