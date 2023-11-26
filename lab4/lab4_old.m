@@ -14,8 +14,8 @@
 %% MyTest
 [c, A, b, g] = drawData(n, m);
 
-options = optimoptions('linprog','Display','none','Algorithm','dual-simplex');
-[x,fval,exitflag_linprog,output,lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
+[x, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
 
 %% MyTest2
 [ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
