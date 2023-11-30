@@ -16,10 +16,12 @@ MY_INF = 10^20;
 %% MyTest
 n = 5;
 m = 10;
+n = 2;
+m = 3;
 [c, A, b, g] = drawData(n, m);
 
 options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
-[x, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+[x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
 
 %% MyTest2
 [ZPx, ZDy, exitflag_my] = dualSimplex(c, A, b, g, true)
@@ -45,27 +47,22 @@ for i = 1:n_rows
 end
 
 disp("Moj:")
-[x, fval, exitflag, A_after, indices, zBaza] = simplex(c_dual, A_dual, b_dual, baseIndexes, false)
+[x, fval, exitflag, A_after, indices, zBaza] = simplex(c_dual, A_dual, b_dual, baseIndexes, true)
 disp("linprog:")
 [x, fval, exitflag_linprog, output, lambda] = linprog(-c_dual, [], [], A_dual, b_dual, zeros(1, size(c_dual, 2)))
 
 % odczytanie wyniku
-% Chcemy rozwiazać ukałd równań x * B = d,
+% Chcemy rozwiazać ukałd równań x * B = d, x = d * B^(-1)
 % gdzie x jest niewiadomą
 % B jest macierzą oryginalną A' na elementach starej bazy baseIndexes
 A_solution = A_after(:, baseIndexes);
 for i = 1:n_rows
-    if(signChanged(i) == 1)
+    if(signChanged(i) == 0) % zamieniony był problem dualny z min na max
         A_solution(:, i) = -A_solution(:, i);
     end
 end
 my_x = c_dual(indices) * A_solution
-% niestety sa tu ujemne :<
 
-% Podejście z odwracaniem
-naw_A = [A', eye(n_rows), -eye(n_rows)];
-A_B = naw_A(:, indices);
-inv(A_B) * c'
 
 
 
@@ -162,7 +159,7 @@ function [x, fval, exitflag, A, baza, zBaza] = simplex(c, A, b, baseIndexes, ver
     cMinusZ = c - z;
     licznikIteracji = 0;
 
-    while (any(cMinusZ > 0) && licznikIteracji < 100)
+    while (any(cMinusZ < 0) && licznikIteracji < 100)
         licznikIteracji = licznikIteracji + 1;
 
         % Krok 1: Wybór nowej zmiennej do wejścia do bazy
