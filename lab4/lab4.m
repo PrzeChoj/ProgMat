@@ -13,11 +13,21 @@
 
 MY_INF = 10^20;
 
+%% Sekcja1
+% Tą sekcję wywoływać tak długo, aż linprog zwroci wynik jednoznaczny. Zazwyczaj ~5 razy
+n = 5;
+m = 10;
+[c, A, b, g] = drawData(n, m);
+
+options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
+[x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+
+%% Sekcja2
+[ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, true)
+
 %% MyTest
 n = 5;
 m = 10;
-n = 2;
-m = 3;
 [c, A, b, g] = drawData(n, m);
 
 options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
@@ -99,24 +109,24 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
         disp(g);
     end
     exitflag = 1;
-    [n_rows, n_cols] = size(A');
-    A_dual = [A' eye(n_rows) -eye(n_rows)];
-    c_dual = -[b', g', zeros(1, n_rows)];
-    b_dual = c';
-    baseIndexes = zeros(n_rows, 1);
-    signChanged = zeros(n_rows, 1);
-    
-    % Zamiana wierszy na ujemny i dopisanie odpowiedniego do bazy:
-    for i = 1:n_rows
-        if(b_dual(i) < 0)
-            signChanged(i) = 1;
-            baseIndexes(i) = n_cols + n_rows + i;
-            A_dual(i, :) = -A_dual(i, :);
-            b_dual(i, :) = -b_dual(i, :);
-        else
-            baseIndexes(i) = n_cols + i;
-        end
-    end
+	[n_rows, n_cols] = size(A');
+	A_dual = [A', eye(n_rows), -eye(n_rows)];
+	c_dual = -[b', g', zeros(1, n_rows)];
+	b_dual = c';
+	baseIndexes = zeros(n_rows, 1);
+	signChanged = zeros(n_rows, 1);
+
+	% Zamiana wierszy na ujemny i dopisanie odpowiedniego do bazy:
+	for i = 1:n_rows
+	    if(b_dual(i) < 0)
+	        signChanged(i) = 1;
+	        baseIndexes(i) = n_cols + n_rows + i;
+	        A_dual(i, :) = -A_dual(i, :); % zamiana wiersza na ujemny
+	        b_dual(i) = -b_dual(i);
+	    else
+	        baseIndexes(i) = n_cols + i;
+	    end
+	end
     if(verbose)
         disp("Dane przekrztalcone do dualnego:")
         disp(signChanged);
@@ -126,21 +136,24 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
     end
 
     % wywołanie zwykłego solvera simplex
-    [ZDy, ~, exitflag, A_dual, ~, baseIndexes] = simplex(c_dual, A_dual, b_dual, baseIndexes, verbose);
+    [ZDy, ~, exitflag, A_after, indices, zBaza] = simplex(c_dual, A_dual, b_dual, baseIndexes, verbose);
     if(verbose)
         disp("Wyniki obliczen:")
         disp(linprog(-c_dual, [], [], A_dual, b_dual, zeros(size(c_dual))')')
         disp(ZDy)
     end
-    
-    % Dostosowanie wyniku dualnego do wyniku prymalnego:
-    A_solution = A_dual(:, baseIndexes);
-    for i = 1:n_rows
-        if(signChanged(i) == 1)
-            A_solution(:, i) = -A_solution(:, i);
-        end
-    end
-    ZPx = c_dual(baseIndexes) * A_solution; % tu rozwiązanie prymalnego
+	
+	% odczytanie wyniku
+	% Chcemy rozwiazać ukałd równań x * B = d, x = d * B^(-1)
+	% gdzie x jest niewiadomą
+	% B jest macierzą oryginalną A' na elementach starej bazy baseIndexes
+	A_solution = A_after(:, baseIndexes);
+	for i = 1:n_rows
+	    if(signChanged(i) == 0) % zamieniony był problem dualny z min na max
+	        A_solution(:, i) = -A_solution(:, i);
+	    end
+	end
+	ZPx = c_dual(indices) * A_solution
 end
 
 % Metoda simplex do zadania:
