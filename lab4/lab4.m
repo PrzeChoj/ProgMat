@@ -263,7 +263,17 @@ function [c, A, b, g] = drawData(n, m)
     g = randi([1, 30], n, 1);
 end
 
+function [czySieUdal] = singleTest(n, m)
+    options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
+    exitflag_linprog = 0;
+    while (exitflag_linprog ~= 1)
+        [c, A, b, g] = drawData(n, m);
+        [x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+    end
+    [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, true);
 
+    czySieUdal = (max(abs(x_linprog - ZPx)) < 0.2);
+end
 
 
 
