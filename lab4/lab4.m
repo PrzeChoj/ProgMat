@@ -13,6 +13,19 @@
 
 MY_INF = 10^20;
 
+%% yyy
+my_ans = singleTest(5, 10)
+
+%% yyy2
+options = optimoptions('linprog', 'Display', 'none', 'Algorithm', 'dual-simplex');
+exitflag_linprog = 0;
+while (exitflag_linprog ~= 1)
+    [c, A, b, g] = drawData(n, m);
+    [x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options);
+end
+[ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, false);
+x_linprog - ZPx'
+
 %% Sekcja1
 % Tą sekcję wywoływać tak długo, aż linprog zwroci wynik jednoznaczny. Zazwyczaj ~5 razy
 n = 5;
@@ -153,7 +166,7 @@ function [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, verbose)
 	        A_solution(:, i) = -A_solution(:, i);
 	    end
 	end
-	ZPx = c_dual(indices) * A_solution
+	ZPx = c_dual(indices) * A_solution;
 end
 
 % Metoda simplex do zadania:
@@ -268,11 +281,11 @@ function [czySieUdal] = singleTest(n, m)
     exitflag_linprog = 0;
     while (exitflag_linprog ~= 1)
         [c, A, b, g] = drawData(n, m);
-        [x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options)
+        [x_linprog, fval, exitflag_linprog, output, lambda] = linprog(c, A, b, [], [], zeros(1, n), g, options);
     end
-    [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, true);
+    [ZPx, ZDy, exitflag] = dualSimplex(c, A, b, g, false);
 
-    czySieUdal = (max(abs(x_linprog - ZPx)) < 0.2);
+    czySieUdal = (max(abs(x_linprog - ZPx')) < 0.2);
 end
 
 
