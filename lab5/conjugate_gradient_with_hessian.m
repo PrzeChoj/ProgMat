@@ -1,5 +1,5 @@
 % funkcja optymalizująca gradientami sprzężonymi
-function [x_opt, f_opt] = conjugate_gradient_with_hessian(ridgeFun, x0, max_iter, verbose)
+function [x_opt, f_opt, n_iters] = conjugate_gradient_with_hessian(ridgeFun, x0, max_iter, verbose)
     % ridgeFun: Function to minimize
     % x0: Initial guess for the parameters
     % max_iter: Maximum number of iterations
@@ -18,6 +18,8 @@ function [x_opt, f_opt] = conjugate_gradient_with_hessian(ridgeFun, x0, max_iter
 
     % Perform conjugate gradient iterations
     for iter = 1:max_iter
+        n_iters = iter;
+        
         % Update parameters using the Newton method
         x_new = x - learningRate * (hes \ grad);
 

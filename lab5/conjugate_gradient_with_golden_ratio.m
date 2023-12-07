@@ -1,5 +1,5 @@
 % funkcja optymalizująca gradientami sprzężonymi z iteracyjnym złotym podziałem
-function [x_opt, f_opt] = conjugate_gradient_with_golden_ratio(ridgeFun, x0, max_iter, verbose)
+function [x_opt, f_opt, n_iters] = conjugate_gradient_with_golden_ratio(ridgeFun, x0, max_iter, verbose)
     % ridgeFun: Function to minimize
     % x0: Initial guess for the parameters
     % max_iter: Maximum number of iterations
@@ -29,6 +29,8 @@ function [x_opt, f_opt] = conjugate_gradient_with_golden_ratio(ridgeFun, x0, max
 
     % Perform conjugate gradient iterations
     for iter = 1:max_iter
+        n_iters = iter;
+        
         % Golden Ratio line search
         alpha = golden_ratio_search(@(a) ridgeFun(x + a * p), golder_ratio_tol);
 

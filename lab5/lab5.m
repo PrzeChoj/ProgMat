@@ -1,8 +1,13 @@
 % cd('/Users/adam/Desktop/programiki.nosync/ProgMat/lab5')
 %% test
-x0 = zeros(n, 1);
+rng(1234);
 
-ridgeFun = fun(n, m, alpha);
+N = 100;
+[dokl, dokl_GR, dokl_MATLAB, n_iters, n_iters_GR, time_hess, time_GR, time_MATLAB] = ridge_tests(N, n, m, alpha, max_iter);
+fprintf('Używając Hesianu osiągnięto dokładność 1e%f, użyto średnio %f iteracji i zajęło to %f.\n', log10(dokl), mean(n_iters), time_hess);
+fprintf('Używając złotego osiągnięto dokładność 1e%f, podziału użyto średnio %f iteracji i zajęło to %f.\n', log10(dokl_GR), mean(n_iters_GR), time_GR);
+fprintf('Użycie wbudowanej w MATLAB fminunc osiągnięto dokładność 1e%f, zajęło to %f.\n', log10(dokl_MATLAB), time_MATLAB);
+
 
 %% test 2
 [result, grad, hes] = ridgeFun(x0)
